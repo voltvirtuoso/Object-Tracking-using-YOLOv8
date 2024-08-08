@@ -7,8 +7,8 @@
 - **Installation Instructions:**
   1. **Clone the repository:**
      ```bash
-     git clone https://github.com/voltvirtuoso/vehicle-detection-tracking.git
-     cd vehicle-detection-tracking
+     git clone https://github.com/voltvirtuoso/Object-Tracking-using-YOLOv8.git
+     cd Object-Tracking-using-YOLOv8
      ```
   2. **Create a virtual environment:**
      ```bash
