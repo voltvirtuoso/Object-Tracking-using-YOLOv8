@@ -1,0 +1,10 @@
+opencv-python-headless
+numpy
+ultralytics
+scikit-image
+filterpy
+tqdm
+
+# manually clone the repo in project folder (if required)
+# git clone https://github.com/abewley/sort.git
+
