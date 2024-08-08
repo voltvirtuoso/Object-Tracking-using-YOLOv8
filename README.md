@@ -7,7 +7,7 @@
 - **Installation Instructions:**
   1. **Clone the repository:**
      ```bash
-     git clone https://github.com/yourusername/vehicle-detection-tracking.git
+     git clone https://github.com/voltvirtuoso/vehicle-detection-tracking.git
      cd vehicle-detection-tracking
      ```
   2. **Create a virtual environment:**
