@@ -47,5 +47,3 @@
 - **License and Contact:**
   - **License:** This project is licensed under the MIT License.
 
-
-Feel free to modify any sections to better fit your project details or personal preferences!
