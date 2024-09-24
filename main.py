@@ -1,6 +1,3 @@
-"""
-This code is tracking objects using pre trained weights of yolo. For your application, you can use your own weights as well
-"""
 import os
 import urllib.request
 import cv2
@@ -39,6 +36,9 @@ model = YOLO(weights_path)
 # Initialize SORT tracker
 tracker = Sort()
 
+# Set the confidence threshold for object detection
+CONFIDENCE_THRESHOLD = 0.1  # Adjust this value based on your requirements
+
 def detect_objects(frame):
     """Detect objects in the frame using YOLOv8."""
     # Run inference
@@ -52,16 +52,17 @@ def detect_objects(frame):
         scores = result.boxes.conf.cpu().numpy()
         class_ids = result.boxes.cls.cpu().numpy()
         
-        # Combine results into a list of dictionaries
+        # Combine results into a list of dictionaries, filtering by confidence threshold
         for box, score, class_id in zip(boxes, scores, class_ids):
-            detections.append({
-                'xmin': box[0],
-                'ymin': box[1],
-                'xmax': box[2],
-                'ymax': box[3],
-                'confidence': score,
-                'class_id': int(class_id)
-            })
+            if score >= CONFIDENCE_THRESHOLD:
+                detections.append({
+                    'xmin': box[0],
+                    'ymin': box[1],
+                    'xmax': box[2],
+                    'ymax': box[3],
+                    'confidence': score,
+                    'class_id': int(class_id)
+                })
     
     return detections
 
@@ -70,10 +71,9 @@ def track_vehicles(frame, detected_objects):
     detections = []
     
     for obj in detected_objects:
-        # Adjust class_id if needed based on your YOLO model
-        if obj['class_id'] in [0, 2, 5, 7]:  # Assuming 'car', 'bus', 'truck', etc. have class_id 0, 2, 5, 7
-            x1, y1, x2, y2 = int(obj['xmin']), int(obj['ymin']), int(obj['xmax']), int(obj['ymax'])
-            detections.append([x1, y1, x2, y2, obj['confidence']])
+        # Include all detected classes (adjust the logic if you want to filter specific classes)
+        x1, y1, x2, y2 = int(obj['xmin']), int(obj['ymin']), int(obj['xmax']), int(obj['ymax'])
+        detections.append([x1, y1, x2, y2, obj['confidence']])
     
     # Convert detections to numpy array if there are any detections
     if detections:
@@ -91,10 +91,29 @@ def get_unique_color(track_id):
     random.seed(track_id)  # Ensure reproducibility
     return tuple(random.randint(0, 255) for _ in range(3))
 
-cap_toll = cv2.VideoCapture("highway.mp4")  # Replace with your camera stream
+def resize_with_max_dimension(image, max_dimension):
+    """Resize the image such that the largest dimension equals the max_dimension, keeping aspect ratio intact."""
+    height, width = image.shape[:2]
+    if max_dimension is None:
+        return image
+
+    # Determine the scaling factor based on the larger dimension
+    if max(height, width) > max_dimension:
+        scale = max_dimension / max(height, width)
+        new_size = (int(width * scale), int(height * scale))
+        resized_image = cv2.resize(image, new_size, interpolation=cv2.INTER_AREA)
+        return resized_image
+    else:
+        # No resizing needed if the largest dimension is already smaller than max_dimension
+        return image
+
+ip_url = 'http://192.168.43.1:8080/video'
+cap_toll = cv2.VideoCapture(ip_url)  # Replace with your camera stream
 
 # Dictionary to keep track of object paths
 object_paths = {}
+
+max_dimension = 720  # Set the max dimension for resizing
 
 while True:
     ret, frame_toll = cap_toll.read()
@@ -102,21 +121,15 @@ while True:
     if not ret:
         break
 
-    # Downscale frame if too large to fit screen
-    height, width = frame_toll.shape[:2]
-    max_height = 720  # Set maximum height for display
-    max_width = 1280   # Set maximum width for display
-    
-    if height > max_height or width > max_width:
-        scale = min(max_height / height, max_width / width)
-        new_size = (int(width * scale), int(height * scale))
-        frame_toll = cv2.resize(frame_toll, new_size, interpolation=cv2.INTER_AREA)
+    # Resize the frame to the max dimension while keeping the aspect ratio
+    frame_toll = resize_with_max_dimension(frame_toll, max_dimension)
 
     detected_objects_toll = detect_objects(frame_toll)
     tracked_objects = track_vehicles(frame_toll, detected_objects_toll)
 
     for obj in tracked_objects:
         x1, y1, x2, y2, track_id = int(obj[0]), int(obj[1]), int(obj[2]), int(obj[3]), int(obj[4])
+        confidence = obj[4]  # Use confidence for drawing
         
         # Get or generate a unique color for the track_id
         color = get_unique_color(track_id)
@@ -124,8 +137,9 @@ while True:
         # Draw the bounding box
         cv2.rectangle(frame_toll, (x1, y1), (x2, y2), color, 2)
         
-        # Draw the track ID
-        cv2.putText(frame_toll, str(track_id), (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
+        # Draw the track ID and confidence score
+        label = f'ID: {track_id}, Conf: {confidence:.2f}'
+        cv2.putText(frame_toll, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
         
         # Update the object paths
         if track_id not in object_paths:
@@ -138,7 +152,7 @@ while True:
             for i in range(1, len(path)):
                 cv2.line(frame_toll, path[i - 1], path[i], color, 2)
     
-    cv2.imshow("Toll Camera", frame_toll)
+    cv2.imshow("Camera", frame_toll)
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
